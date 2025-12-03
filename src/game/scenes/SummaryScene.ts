@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config';
+// import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 
 type DifficultyLevel = 1 | 2 | 3;
 
 export class SummaryScene extends Phaser.Scene {
     private lessonId!: string;
-    private score!: number;
-    private total!: number;
+    // private score!: number;
+    // private total!: number;
     private difficulty: DifficultyLevel = 3; // thêm field
 
     private containerEl: HTMLElement | null = null;
@@ -30,8 +30,8 @@ export class SummaryScene extends Phaser.Scene {
         difficulty?: DifficultyLevel;
     }) {
         this.lessonId = data.lessonId;
-        this.score = data.score;
-        this.total = data.total;
+        // this.score = data.score;
+        // this.total = data.total;
         this.difficulty = data.difficulty ?? 3; // nhận lại độ khó vừa chơi
     }
 

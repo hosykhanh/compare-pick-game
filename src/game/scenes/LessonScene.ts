@@ -29,7 +29,7 @@ export class LessonScene extends Phaser.Scene {
     private speakerIcon!: Phaser.GameObjects.Image;
     private progressText!: Phaser.GameObjects.Text;
     private questionBar?: Phaser.GameObjects.Image;
-    private questionBarBaseLength = 0;
+    // private questionBarBaseLength = 0;
 
     private optionImages: Phaser.GameObjects.Image[] = [];
     private optionPanels: Phaser.GameObjects.Image[] = [];
@@ -381,6 +381,8 @@ export class LessonScene extends Phaser.Scene {
                     .setOrigin(0.5)
                     .setDisplaySize(panelW, panelH);
 
+                panel.setInteractive({ useHandCursor: true });
+
                 const img = this.add.image(x, panelY, opt.image).setOrigin(0.5);
                 img.setScale(scale);
                 img.setInteractive({ useHandCursor: true });
@@ -390,9 +392,13 @@ export class LessonScene extends Phaser.Scene {
                     this.alignImageBottomInPanel(img, panelY, panelH, 40);
                 }
 
-                img.on('pointerdown', () =>
-                    this.onSelect(item, opt.id, img, panel)
-                );
+                const handleClick = () => {
+                    this.onSelect(item, opt.id, img, panel);
+                };
+
+                // 👇 Gán cùng handler cho cả panel và img
+                panel.on('pointerdown', handleClick);
+                img.on('pointerdown', handleClick);
 
                 panel.setData('panelKeys', {
                     base: 'panel_bg',
@@ -420,6 +426,8 @@ export class LessonScene extends Phaser.Scene {
                     .setOrigin(0.5)
                     .setDisplaySize(panelW, panelH);
 
+                panel.setInteractive({ useHandCursor: true });
+
                 const img = this.add.image(x, panelY, opt.image).setOrigin(0.5);
                 img.setScale(scale);
                 img.setInteractive({ useHandCursor: true });
@@ -428,9 +436,13 @@ export class LessonScene extends Phaser.Scene {
                     this.alignImageBottomInPanel(img, panelY, panelH, 35);
                 }
 
-                img.on('pointerdown', () =>
-                    this.onSelect(item, opt.id, img, panel)
-                );
+                const handleClick = () => {
+                    this.onSelect(item, opt.id, img, panel);
+                };
+
+                // 👇 Gán cùng handler cho cả panel và img
+                panel.on('pointerdown', handleClick);
+                img.on('pointerdown', handleClick);
 
                 panel.setData('panelKeys', {
                     base: 'panel_bg',
@@ -469,6 +481,8 @@ export class LessonScene extends Phaser.Scene {
                     .setOrigin(0.5)
                     .setDisplaySize(panelW, panelH);
 
+                panel.setInteractive({ useHandCursor: true });
+
                 const img = this.add
                     .image(pos.x, pos.y, opt.image)
                     .setOrigin(0.5);
@@ -479,10 +493,13 @@ export class LessonScene extends Phaser.Scene {
                     // căn chân theo từng hàng riêng (top/bottom), panelH chung
                     this.alignImageBottomInPanel(img, pos.y, panelH, 30);
                 }
+                const handleClick = () => {
+                    this.onSelect(item, opt.id, img, panel);
+                };
 
-                img.on('pointerdown', () =>
-                    this.onSelect(item, opt.id, img, panel)
-                );
+                // 👇 Gán cùng handler cho cả panel và img
+                panel.on('pointerdown', handleClick);
+                img.on('pointerdown', handleClick);
 
                 panel.setData('panelKeys', {
                     base: 'panel_bg_1',
@@ -511,6 +528,8 @@ export class LessonScene extends Phaser.Scene {
                     .setOrigin(0.5)
                     .setDisplaySize(panelW, panelH);
 
+                panel.setInteractive({ useHandCursor: true });
+
                 const img = this.add.image(x, panelY, opt.image).setOrigin(0.5);
                 img.setScale(scale);
                 img.setInteractive({ useHandCursor: true });
@@ -519,9 +538,13 @@ export class LessonScene extends Phaser.Scene {
                     this.alignImageBottomInPanel(img, panelY, panelH, 35);
                 }
 
-                img.on('pointerdown', () =>
-                    this.onSelect(item, opt.id, img, panel)
-                );
+                const handleClick = () => {
+                    this.onSelect(item, opt.id, img, panel);
+                };
+
+                // 👇 Gán cùng handler cho cả panel và img
+                panel.on('pointerdown', handleClick);
+                img.on('pointerdown', handleClick);
 
                 panel.setData('panelKeys', {
                     base: 'panel_bg',

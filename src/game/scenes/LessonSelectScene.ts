@@ -109,7 +109,7 @@ export class LessonSelectScene extends Phaser.Scene {
             panel.setInteractive({ useHandCursor: true });
 
             // Text tiêu đề
-            const titleText = this.add
+            this.add
                 .text(pos.x, pos.y - 25, opt.title, {
                     fontSize: '22px',
                     color: '#000',
@@ -117,7 +117,7 @@ export class LessonSelectScene extends Phaser.Scene {
                 .setOrigin(0.5);
 
             // Text mô tả
-            const subText = this.add
+            this.add
                 .text(pos.x, pos.y + 20, opt.subtitle, {
                     fontSize: '16px',
                     color: '#555',
