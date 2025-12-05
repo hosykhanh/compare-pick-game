@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import type { LessonPackage, LessonItem } from '../types/lesson';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 import { domBackgroundManager } from '../domBackground';
+import { showGameButtons } from '../../main';
 
 type DifficultyLevel = 1 | 2 | 3;
 
@@ -26,16 +27,18 @@ export class LessonScene extends Phaser.Scene {
     private boy?: Phaser.GameObjects.Image;
 
     private promptText!: Phaser.GameObjects.Text;
-    private speakerIcon!: Phaser.GameObjects.Image;
     private progressText!: Phaser.GameObjects.Text;
     private questionBar?: Phaser.GameObjects.Image;
-    // private questionBarBaseLength = 0;
+    private questionBarBaseWidth = 0;
+    private questionBarBaseScaleX = 1;
+    private questionBarBaseScaleY = 1;
 
     private optionImages: Phaser.GameObjects.Image[] = [];
     private optionPanels: Phaser.GameObjects.Image[] = [];
 
     private lockInput = false;
     private currentPromptAudioKey: string | null = null;
+    private audioReplayTimer?: Phaser.Time.TimerEvent;
 
     private answerLogs: AnswerLog[] = [];
 
@@ -62,6 +65,9 @@ export class LessonScene extends Phaser.Scene {
     }
 
     create() {
+        // Cho phép html-button gọi vào lessonScene qua global
+        (window as any).lessonScene = this;
+
         domBackgroundManager.setBackgroundByKey(this.lesson.concept);
 
         // ===== HEADER =====
@@ -70,13 +76,22 @@ export class LessonScene extends Phaser.Scene {
         const centerY = 60;
 
         if (this.textures.exists('question_bar')) {
-            const barWidth = GAME_WIDTH * 0.4;
-            this.questionBar = this.add
-                .image(GAME_WIDTH / 2 + 60, 60, 'question_bar')
+            // tạo bar với kích thước “gốc” ~ 40% màn
+            const baseDisplayWidth = GAME_WIDTH * 0.4;
+
+            const bar = this.add
+                .image(centerX, centerY, 'question_bar')
                 .setOrigin(0.5);
 
-            const ratio = this.questionBar.height / this.questionBar.width;
-            this.questionBar.setDisplaySize(barWidth, barWidth * ratio);
+            const texW = bar.width || 1;
+            const s = baseDisplayWidth / texW;
+
+            bar.setScale(s); // scale đều theo cả 2 chiều ban đầu
+
+            this.questionBar = bar;
+            this.questionBarBaseWidth = bar.displayWidth; // chiều RỘNG hiển thị ban đầu
+            this.questionBarBaseScaleX = bar.scaleX;
+            this.questionBarBaseScaleY = bar.scaleY;
         }
 
         // Tạo prompt text, luôn nằm trên thanh
@@ -92,33 +107,14 @@ export class LessonScene extends Phaser.Scene {
             .setOrigin(0.5)
             .setDepth(1); // chữ ở trên
 
-        // Icon loa
-        this.speakerIcon = this.add
-            .image(GAME_WIDTH - 60, 80, 'speaker-icon')
-            .setOrigin(0.5)
-            .setScale(0.4)
-            .setInteractive({ useHandCursor: true });
-
-        this.speakerIcon.on('pointerdown', () => {
-            const key = this.currentPromptAudioKey;
-            if (!key) return;
-
-            // chỉ play nếu audio có trong cache
-            const hasSound =
-                this.sound.get(key) !== null ||
-                (this.cache.audio && this.cache.audio.exists(key));
-
-            if (hasSound) {
-                this.sound.play(key);
-            }
-        });
-
         // Progress text
         this.progressText = this.add
-            .text(GAME_WIDTH - 40, 20, '', {
-                fontSize: '18px',
+            .text(250, 40, '', {
+                fontSize: '28px',
                 color: '#555',
                 align: 'right',
+                fontFamily: '"Baloo 2"',
+                fontStyle: '700',
             })
             .setOrigin(1, 0);
 
@@ -177,6 +173,7 @@ export class LessonScene extends Phaser.Scene {
                 repeat: -1,
             });
         }
+        showGameButtons();
     }
 
     // ===== Tutorial overlay =====
@@ -254,6 +251,36 @@ export class LessonScene extends Phaser.Scene {
 
     // ===== Hiển thị 1 câu hỏi =====
 
+    private updateQuestionBarToFitText() {
+        if (!this.questionBar) return;
+
+        const centerX = this.promptText.x;
+        const centerY = this.promptText.y;
+
+        // chiều rộng text thực tế
+        const padding = 80; // thêm khoảng trống hai bên chữ
+        const textWidth = this.promptText.width;
+        const neededWidth = textWidth + padding;
+
+        const baseWidth =
+            this.questionBarBaseWidth || this.questionBar.displayWidth || 1;
+
+        // mặc định: scale theo base (không kéo ngang thêm)
+        let scaleX = this.questionBarBaseScaleX;
+
+        // chỉ khi text dài hơn bar gốc mới kéo ngang
+        if (neededWidth > baseWidth) {
+            const factor = neededWidth / baseWidth;
+            scaleX = this.questionBarBaseScaleX * factor;
+        }
+
+        // scaleX thay đổi, scaleY giữ nguyên → height không đổi
+        this.questionBar.setScale(scaleX, this.questionBarBaseScaleY);
+
+        // đảm bảo bar nằm đúng dưới text
+        this.questionBar.setPosition(centerX, centerY);
+    }
+
     private showQuestion() {
         const item = this.lesson.items[this.index];
         if (!item) {
@@ -267,10 +294,18 @@ export class LessonScene extends Phaser.Scene {
         const text = item.promptText || this.lesson.defaultPromptText;
         this.promptText.setText(text);
 
+        this.updateQuestionBarToFitText();
+
         // Audio
         const promptAudio =
             item.promptAudio || this.lesson.defaultPromptAudio || null;
         this.currentPromptAudioKey = promptAudio;
+
+        // 🔥 huỷ timer đọc lại cũ (nếu có) trước khi set câu mới
+        if (this.audioReplayTimer) {
+            this.audioReplayTimer.remove(false);
+            this.audioReplayTimer = undefined;
+        }
 
         if (promptAudio) {
             const hasSound =
@@ -280,11 +315,13 @@ export class LessonScene extends Phaser.Scene {
             if (hasSound) {
                 this.sound.play(promptAudio);
             }
+            // 👉 đặt timer 5s đọc lại câu hỏi
+            this.schedulePromptReplay();
         }
 
         // Progress
         this.progressText.setText(
-            `Câu ${this.index + 1}/${this.lesson.items.length}`
+            `Câu ${this.index + 1}/${this.lesson.items.length}:`
         );
 
         // Clear options cũ
@@ -295,6 +332,28 @@ export class LessonScene extends Phaser.Scene {
 
         // Render options mới
         this.renderOptions(item);
+    }
+
+    private schedulePromptReplay() {
+        if (!this.currentPromptAudioKey) return;
+
+        this.audioReplayTimer = this.time.addEvent({
+            delay: 10000, // 10 giây
+            callback: () => {
+                const key = this.currentPromptAudioKey;
+                if (!key) return;
+
+                const hasSound =
+                    this.sound.get(key) !== null ||
+                    (this.cache.audio && this.cache.audio.exists(key));
+
+                if (hasSound) {
+                    this.sound.play(key);
+                }
+            },
+            callbackScope: this,
+            loop: false,
+        });
     }
 
     // ===== Vẽ panel + hình cho mỗi lựa chọn =====
@@ -365,11 +424,11 @@ export class LessonScene extends Phaser.Scene {
         const alignByHeight = this.lesson.concept === 'HEIGHT';
 
         if (count === 2) {
-            const spacing = 460;
+            const spacing = 440;
             const startX = GAME_WIDTH / 2 - ((count - 1) * spacing) / 2 + 60;
-            const panelY = centerY + 20;
+            const panelY = centerY;
             const panelW = 420;
-            const panelH = 500;
+            const panelH = 520;
 
             const scale = this.computeItemScale(opts, panelW, panelH, 60);
 
@@ -569,6 +628,12 @@ export class LessonScene extends Phaser.Scene {
         if (this.lockInput) return;
         this.lockInput = true;
 
+        // 🔥 bé đã chọn -> huỷ timer đọc lại câu hỏi
+        if (this.audioReplayTimer) {
+            this.audioReplayTimer.remove(false);
+            this.audioReplayTimer = undefined;
+        }
+
         const isCorrect = optId === item.correctOptionId;
 
         // Lấy bộ key của panel (base/correct/wrong)
@@ -593,6 +658,8 @@ export class LessonScene extends Phaser.Scene {
 
         if (isCorrect) {
             this.score++;
+            this.sound.play('correct');
+            this.sound.play('correct_answer');
 
             // Panel đúng
             if (this.textures.exists(correctKey)) {
@@ -609,10 +676,11 @@ export class LessonScene extends Phaser.Scene {
                 duration: 150,
                 repeat: 1,
                 onComplete: () => {
-                    this.time.delayedCall(300, () => this.nextQuestion());
+                    this.time.delayedCall(2000, () => this.nextQuestion());
                 },
             });
         } else {
+            this.sound.play('wrong');
             // Panel sai
             if (this.textures.exists(wrongKey)) {
                 panel.setTexture(wrongKey);
@@ -642,6 +710,10 @@ export class LessonScene extends Phaser.Scene {
 
     private endLesson() {
         console.log('Answer logs:', this.answerLogs);
+        if (this.audioReplayTimer) {
+            this.audioReplayTimer.remove(false);
+            this.audioReplayTimer = undefined;
+        }
 
         this.scene.start('SummaryScene', {
             lessonId: this.lesson.lessonId,
@@ -649,5 +721,56 @@ export class LessonScene extends Phaser.Scene {
             total: this.lesson.items.length,
             difficulty: this.currentDifficulty,
         });
+    }
+
+    public restartLevel() {
+        // reset toàn bài hiện tại về từ đầu
+        if (!this.lesson) return;
+
+        // dừng âm thanh đang phát nếu có
+        this.sound.stopAll();
+
+        // reset state
+        this.index = 0;
+        this.score = 0;
+        this.lockInput = false;
+        this.answerLogs = [];
+
+        // clear option cũ trên màn
+        this.optionImages.forEach((img) => img.destroy());
+        this.optionPanels.forEach((panel) => panel.destroy());
+        this.optionImages = [];
+        this.optionPanels = [];
+
+        // vẽ lại câu đầu tiên
+        this.showQuestion();
+    }
+
+    public goToNextLevel() {
+        this.sound.stopAll();
+        this.sound.play('sfx-click');
+        // bỏ qua câu hiện tại, sang câu tiếp theo
+        if (!this.lesson) return;
+
+        // nếu bạn muốn không cho spam khi đang tween, giữ lock này
+        if (this.lockInput) return;
+
+        this.lockInput = true;
+
+        // optional: log "skip" nếu bạn muốn tracking
+        const item = this.lesson.items[this.index];
+        if (item) {
+            this.answerLogs.push({
+                lessonId: this.lesson.lessonId,
+                itemId: item.id,
+                optionId: 'SKIP',
+                isCorrect: false,
+                index: this.index,
+                difficulty: item.difficulty,
+                timestamp: Date.now(),
+            });
+        }
+
+        this.nextQuestion();
     }
 }
